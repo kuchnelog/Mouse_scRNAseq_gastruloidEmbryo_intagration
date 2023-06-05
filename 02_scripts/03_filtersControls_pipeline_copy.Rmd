@@ -1,0 +1,287 @@
+---
+author: "CC"
+date: "2023-03-27"
+output:
+    html_document:
+        theme:
+            bootswatch: yeti
+        toc: yes
+        toc_float:
+          collapsed: false
+          smooth_scroll: true
+        number_sections: yes
+        df_print: kable
+        code_folding: hide
+    pdf_document:
+        number_sections: yes
+        toc: yes
+        toc_depth: 3
+        keep_tex: no
+title: |
+  | `r DATASET`
+  | Protocole 3: control filtered cells
+---
+
+<!-- Javascript for zooming on figures (adapted from: https://stackoverflow.com/questions/40401680) -->
+
+<!-- Jquery import conflicts with DT::datatable so needs to be commented here -->
+<!-- <script src = "https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script> -->
+
+<style>
+.zoomDiv {
+  display: none;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 50;
+  transform: translate(-50%, -50%);
+  background-color: #FFFFFF;
+  box-shadow: 0px 0px 50px #888888;
+  width: fit-content;
+  max-width: 90%;
+  max-height: 90%;
+  overflow: auto;
+}
+
+.zoomImg {
+  width: 150%;
+}
+</style>
+
+<script type = "text/javascript">
+  $(document).ready(function() {
+    $("body").prepend("<div class = \"zoomDiv\"><img src = \"\" class = \"zoomImg\"></div>");
+    // onClick for all img except the zoomed one and link ones (filter)
+    // use "img.zoom" and out.extra = "class = \"zoom\"" in chunk to specify manually which chunk images can be zoomed
+    $("img:not(.zoomImg)").filter(":not(a *)").click(function() {
+      $(".zoomImg").attr("src", $(this).attr("src"));
+      $(".zoomDiv").show();
+    })
+    // onClick function for hiding div
+    $("img.zoomImg").click(function() {
+      $(".zoomDiv").hide();
+    })
+  })
+</script>
+
+
+```{r setup, include = FALSE}
+options(knitr.purl.inline = TRUE)
+knitr::opts_chunk$set(
+  # code evaluation
+  eval = TRUE,
+
+  # text output
+  echo = TRUE,
+  results = "hold",
+  warning = FALSE,
+  error = FALSE,
+  message = FALSE,
+  strip.white = TRUE,
+
+  # code decoration
+  #tidy = TRUE,
+  tidy.opts = list(width.cutoff = 90),
+  comment = "",
+  attr.output = ".numberLines",
+
+  # plots
+  #fig.path = "figure/",      # is set later, in chunk setup2
+  fig.show = "asis",         # tuned to "hold" in multiple plots chunk
+  dev = c("png", "pdf"),
+  fig.width = 12,
+  fig.height = 12,
+  #fig.asp = 1.3               # fig.height = fig.width * fig.asp
+  #out.extra = "style = "border:5px solid orange""    # orange box arround plots
+  fig.align = "center"   # should be tuned to default in multiple plots chunk
+)
+```
+
+```{r load-libraries, include = FALSE}
+library(kableExtra)
+library(dplyr)
+library(Seurat)
+library(stringr)
+library(ggplot2)
+```
+
+```{r dir-managment, include = FALSE}
+if (!dir.exists(PATH_ROOT)) { dir.create(PATH_ROOT) }
+if (!dir.exists(PATH_OUT_HTML)) { dir.create(PATH_OUT_HTML) }
+# PATH_OUT_ANALYSIS <- file.path(PATH_ROOT, "05_filtersChecking")
+# if (!dir.exists(PATH_OUT_ANALYSIS)) { dir.create(PATH_OUT_ANALYSIS) }
+if (!dir.exists(PATH_OUT_FIG)) { dir.create(PATH_OUT_FIG, recursive = TRUE) }
+```
+
+<!-- # Global settings -->
+
+```{r show-params, eval=FALSE, include=FALSE}
+ul <- unlist(params)
+df <- data.frame(keyName = names(ul), value = ul, row.names = NULL)
+df <- df[! grepl("^PATH|DATASET", df$keyName), ]
+names(df) <- c("Parameters", "Values")
+df1 <- df[1:ceiling(dim(df)[1] / 3), ]
+df1$Parameters <- cell_spec(df1$Parameters, bold = TRUE)
+df2 <- df[(ceiling(dim(df)[1] / 3) + 1) : (2 * ceiling(dim(df)[1] / 3)), ]
+df2$Parameters <- cell_spec(df2$Parameters, bold = TRUE)
+df3 <- df[((2 * ceiling(dim(df)[1] / 3)) + 1):dim(df)[1], ]
+df3$Parameters <- cell_spec(df3$Parameters, bold = TRUE)
+
+
+list(df1, df2, df3) %>%
+  knitr::kable(align = "ll", row.names = FALSE, escape = FALSE) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"),
+                full_width = FALSE)
+rm(df)
+```
+
+```{r setup2, eval = TRUE, include = FALSE}
+knitr::opts_chunk$set(
+  # code evaluation
+  eval = TRUE,
+
+  # figures
+  fig.path = paste0(PATH_OUT_FIG, "/03_filtersCheck_")
+)
+```
+
+# Load `r DATASET` data
+
+```{r load-data}
+#cplt <- readRDS(paste0(PATH_RDS_OBJECTS, "/02_normANDscaled_", DATASET, "_complete.rds"))
+metadata <- read.table(paste0(PATH_ROOT, "/03_qc/metadata_", DATASET, "_filtered.csv"), header = TRUE, sep = ",")
+umapCoord <- read.table(paste0(PATH_ROOT, "/04_process/DR_umap_", DATASET, "_filtered.csv"), header = TRUE, sep = ",")
+```
+
+# Filtered cells repartition {.tabset .tabset-pills .tabset-fade}
+
+```{r importClustering, out.width="50%"}
+knitr::include_graphics(paste0(PATH_OUT_FIG, "/02_process_dimplot-cluster-fltd-1.png"))
+```
+
+## Mitochondrial outlier cells
+
+```{r repartition-mitoOutliers, out.width="50%"}
+cellsData <- data.frame(umapCoord[,2:3], metadata$outlier.mito)
+colnames(cellsData) <- c(colnames(umapCoord[,2:3]), "Outliers")
+
+
+ggplot(cellsData[c('UMAP_1', 'UMAP_2')], # Omit the column used for facetting to get all points repeated in all facets
+         aes( x = UMAP_1,
+              y = UMAP_2)) +
+    geom_point( alpha = .5,
+                size  = .75,
+                color = "grey") +
+    geom_point( data = cellsData[cellsData$Outliers == TRUE, ], # Now provide data including column for facetting
+                aes(color = Outliers),
+                alpha = 0.6,
+                size  = 1.2) +
+    scale_color_manual( values = c( "TRUE" = "#FF0000AA", "FALSE" = "#44444444")) +
+    # scale_fill_manual(values = colors.celltype[SOsing@meta.data$celltype], aesthetics = "color") +
+    # facet_wrap(facets = vars(celltype),
+    #            ncol = 3) +
+    NoLegend() +
+    ggtitle(paste0(DATASET, "\n", table(cellsData$Outliers)["TRUE"], " mitochondrial gene expression outlier cells")) +
+    theme_minimal() +
+    theme(plot.title = element_text(hjust = 0.5, size = 30),
+          axis.text = element_blank(),
+          line = element_blank(),
+          legend.text = element_text(size = 10),
+          legend.title = element_text(size = 14)) +
+    guides(color = guide_legend(override.aes = list(size = 4)))
+```
+
+## Ribosomal outlier cells
+
+```{r repartition-riboOutliers, out.width="50%"}
+cellsData <- data.frame(umapCoord[,2:3], metadata$outlier.ribo)
+colnames(cellsData) <- c(colnames(umapCoord[,2:3]), "Outliers")
+
+
+ggplot(cellsData[c('UMAP_1', 'UMAP_2')], # Omit the column used for facetting to get all points repeated in all facets
+         aes( x = UMAP_1,
+              y = UMAP_2)) +
+    geom_point( alpha = .5,
+                size  = .75,
+                color = "grey") +
+    geom_point( data = cellsData[cellsData$Outliers == TRUE,], # Now provide data including column for facetting
+                aes(color = Outliers),
+                alpha = 0.6,
+                size  = 1.2) +
+    scale_color_manual( values = c( "TRUE" = "#FF0000AA", "FALSE" = "#44444444")) +
+    # scale_fill_manual(values = colors.celltype[SOsing@meta.data$celltype], aesthetics = "color") +
+    # facet_wrap(facets = vars(celltype),
+    #            ncol = 3) +
+    NoLegend() +
+    ggtitle(paste0(DATASET, "\n", table(cellsData$Outliers)["TRUE"], " ribosomal gene expression outlier cells")) +
+    theme_minimal() +
+    theme(plot.title = element_text(hjust = 0.5, size = 30),
+          axis.text = element_blank(),
+          line = element_blank(),
+          legend.text = element_text(size = 10),
+          legend.title = element_text(size = 14)) +
+    guides(color = guide_legend(override.aes = list(size = 4)))
+```
+
+
+## UMI read counts outlier cells
+
+```{r repartition-UMIreadCountsOutliers, out.width="50%"}
+cellsData <- data.frame(umapCoord[,2:3], metadata$outlier.nCount)
+colnames(cellsData) <- c(colnames(umapCoord[,2:3]), "Outliers")
+
+ggplot(cellsData[c('UMAP_1', 'UMAP_2')], # Omit the column used for facetting to get all points repeated in all facets
+         aes( x = UMAP_1,
+              y = UMAP_2)) +
+    geom_point( alpha = .5,
+                size  = .75,
+                color = "grey") +
+    geom_point( data = cellsData[cellsData$Outliers == TRUE,], # Now provide data including column for facetting
+                aes(color = Outliers),
+                alpha = 0.6,
+                size  = 1.2) +
+    scale_color_manual( values = c( "TRUE" = "#FF0000AA", "FALSE" = "#44444444")) +
+    # scale_fill_manual(values = colors.celltype[SOsing@meta.data$celltype], aesthetics = "color") +
+    # facet_wrap(facets = vars(celltype),
+    #            ncol = 3) +
+    NoLegend() +
+    ggtitle(paste0(DATASET, "\n", table(cellsData$Outliers)["TRUE"], " UMI read counts outlier cells")) +
+    theme_minimal() +
+    theme(plot.title = element_text(hjust = 0.5, size = 30),
+          axis.text = element_blank(),
+          line = element_blank(),
+          legend.text = element_text(size = 10),
+          legend.title = element_text(size = 14)) +
+    guides(color = guide_legend(override.aes = list(size = 4)))
+```
+
+## Feature counts outlier cells
+
+```{r repartition-featCountsOutliers, out.width="50%"}
+cellsData <- data.frame(umapCoord[,2:3], metadata$outlier.nFeature)
+colnames(cellsData) <- c(colnames(umapCoord[,2:3]), "Outliers")
+
+ggplot(cellsData[c('UMAP_1', 'UMAP_2')], # Omit the column used for facetting to get all points repeated in all facets
+         aes( x = UMAP_1,
+              y = UMAP_2)) +
+    geom_point( alpha = .5,
+                size  = .75,
+                color = "grey") +
+    geom_point( data = cellsData[cellsData$Outliers == TRUE,], # Now provide data including column for facetting
+                aes(color = Outliers),
+                alpha = 0.6,
+                size  = 1.2) +
+    scale_color_manual( values = c( "TRUE" = "#FF0000AA", "FALSE" = "#44444444")) +
+    # scale_fill_manual(values = colors.celltype[SOsing@meta.data$celltype], aesthetics = "color") +
+    # facet_wrap(facets = vars(celltype),
+    #            ncol = 3) +
+    NoLegend() +
+    ggtitle(paste0(DATASET, "\n", table(cellsData$Outliers)["TRUE"], " feature counts outlier cells")) +
+    theme_minimal() +
+    theme(plot.title = element_text(hjust = 0.5, size = 30),
+          axis.text = element_blank(),
+          line = element_blank(),
+          legend.text = element_text(size = 10),
+          legend.title = element_text(size = 14)) +
+    guides(color = guide_legend(override.aes = list(size = 4)))
+```

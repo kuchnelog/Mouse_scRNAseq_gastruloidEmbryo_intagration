@@ -1,0 +1,267 @@
+---
+author: "CC"
+date: "2023-03-27"
+output:
+    html_document:
+        theme:
+            bootswatch: yeti
+        toc: yes
+        toc_float:
+          collapsed: false
+          smooth_scroll: true
+        number_sections: yes
+        df_print: kable
+        code_folding: hide
+    pdf_document:
+        number_sections: yes
+        toc: yes
+        toc_depth: 3
+        keep_tex: no
+title: |
+  | `r DATASET`
+  | Protocole 2: Processing
+---
+
+<!-- Javascript for zooming on figures (adapted from: https://stackoverflow.com/questions/40401680) -->
+
+<!-- Jquery import conflicts with DT::datatable so needs to be commented here -->
+<!-- <script src = "https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script> -->
+
+<style>
+.zoomDiv {
+  display: none;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 50;
+  transform: translate(-50%, -50%);
+  background-color: #FFFFFF;
+  box-shadow: 0px 0px 50px #888888;
+  width: fit-content;
+  max-width: 90%;
+  max-height: 90%;
+  overflow: auto;
+}
+
+.zoomImg {
+  width: 150%;
+}
+</style>
+
+<script type = "text/javascript">
+  $(document).ready(function() {
+    $("body").prepend("<div class = \"zoomDiv\"><img src = \"\" class = \"zoomImg\"></div>");
+    // onClick for all img except the zoomed one and link ones (filter)
+    // use "img.zoom" and out.extra = "class = \"zoom\"" in chunk to specify manually which chunk images can be zoomed
+    $("img:not(.zoomImg)").filter(":not(a *)").click(function() {
+      $(".zoomImg").attr("src", $(this).attr("src"));
+      $(".zoomDiv").show();
+    })
+    // onClick function for hiding div
+    $("img.zoomImg").click(function() {
+      $(".zoomDiv").hide();
+    })
+  })
+</script>
+
+
+```{r setup, include = FALSE}
+options(knitr.purl.inline = TRUE)
+knitr::opts_chunk$set(
+  # code evaluation
+  eval = TRUE,
+
+  # text output
+  echo = TRUE,
+  results = "hold",
+  warning = FALSE,
+  error = FALSE,
+  message = FALSE,
+  strip.white = TRUE,
+
+  # code decoration
+  #tidy = TRUE,
+  tidy.opts = list(width.cutoff = 90),
+  comment = "",
+  attr.output = ".numberLines",
+
+  # plots
+  #fig.path = "figure/",      # is set later, in chunk setup2
+  fig.show = "asis",         # tuned to "hold" in multiple plots chunk
+  dev = c("png", "pdf"),
+  fig.width = 12,
+  fig.height = 12,
+  #fig.asp = 1.3               # fig.height = fig.width * fig.asp
+  #out.extra = "style = "border:5px solid orange""    # orange box arround plots
+  fig.align = "center"   # should be tuned to default in multiple plots chunk
+)
+```
+
+```{r load-libraries, include = FALSE}
+library(kableExtra)
+library(dplyr)
+library(Seurat)
+library(stringr)
+library(ggplot2)
+```
+
+```{r get-params, include = TRUE}
+# bindingIsLocked("params", env = .GlobalEnv)
+# unlockBinding("params", env = .GlobalEnv)
+# attach(params)
+set.seed(general_seed)
+```
+
+```{r dir-managment, include = TRUE}
+if (!dir.exists(PATH_ROOT)) { dir.create(PATH_ROOT) }
+if (!dir.exists(PATH_OUT_HTML)) { dir.create(PATH_OUT_HTML) }
+PATH_OUT_ANALYSIS <- file.path(PATH_ROOT, "04_process")
+if (!dir.exists(PATH_OUT_ANALYSIS)) { dir.create(PATH_OUT_ANALYSIS) }
+if (!dir.exists(PATH_OUT_FIG)) { dir.create(PATH_OUT_FIG, recursive = TRUE) }
+```
+
+<!-- # Global settings -->
+
+```{r show-params, eval=FALSE, include=TRUE}
+ul <- unlist(params)
+df <- data.frame(keyName = names(ul), value = ul, row.names = NULL)
+df <- df[! grepl("^PATH|DATASET", df$keyName), ]
+names(df) <- c("Parameters", "Values")
+df1 <- df[1:ceiling(dim(df)[1] / 3), ]
+df1$Parameters <- cell_spec(df1$Parameters, bold = TRUE)
+df2 <- df[(ceiling(dim(df)[1] / 3) + 1) : (2 * ceiling(dim(df)[1] / 3)), ]
+df2$Parameters <- cell_spec(df2$Parameters, bold = TRUE)
+df3 <- df[((2 * ceiling(dim(df)[1] / 3)) + 1):dim(df)[1], ]
+df3$Parameters <- cell_spec(df3$Parameters, bold = TRUE)
+
+
+list(df1, df2, df3) %>%
+  knitr::kable(align = "ll", row.names = FALSE, escape = FALSE) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"),
+                full_width = FALSE)
+rm(df)
+```
+
+```{r setup2, eval = TRUE, include =TRUE}
+knitr::opts_chunk$set(
+  # code evaluation
+  eval = TRUE,
+
+  # figures
+  fig.path = paste0(PATH_OUT_FIG, "/02_process_")
+)
+```
+
+# Load `r DATASET` data
+
+```{r load-data}
+SO <- readRDS(paste0(PATH_RDS_OBJECTS, "/01_qc_", DATASET, "_", FILTER, ".rds"))
+```
+
+# Preprocessing workflow
+
+```{r hvg-vst2, eval=hvg_meth != "mvp", echo=hvg_meth != "mvp", message=TRUE}
+SO <- NormalizeData(SO, normalization.method = norm_meth, verbose=TRUE)
+SO <- ScaleData(SO, features=rownames(SO), do.scale=do_scale, verbose=TRUE)
+saveRDS(SO, file=file.path(PATH_RDS_OBJECTS, paste0("02_normANDscaled_", DATASET, "_", FILTER, ".rds")))
+
+SO <- FindVariableFeatures(SO, nfeatures=hvg_num, selection.method = hvg_meth, verbose=TRUE)
+var.feats.dataset <- VariableFeatures(SO)
+
+SO <- RunPCA(SO, npcs = pca_npcs, nfeatures.print = pca_print, seed.use = general_seed, verbose=TRUE)
+SO <- RunUMAP(SO, dims = 1:top_pcs, seed.use = general_seed, verbose = TRUE)
+```
+
+```{r hvg-mvp2, eval=hvg_meth == "mvp", echo=hvg_meth == "mvp", message=TRUE}
+t(as.data.frame(table(SO@assays[["RNA"]]@meta.features$mvp.variable))) %>%
+  knitr::kable(caption = "Number of features selected as highly variable genes (HVG)",
+               row.names = TRUE,
+               escape = F,
+               align = "cc") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+
+var.feats.DATASET <- VariableFeatures(SO)
+#saveRDS(var.feats.DATASET, file=file.path(PATH_RDS_OBJECTS, paste0("var.feats.dataset_", DATASET, ".rds")))
+
+SO <- ScaleData(SO, features=rownames(SO), do.scale=do_scale, verbose=TRUE)
+SO <- RunPCA(SO, npcs = pca_npcs, nfeatures.print = pca_print, seed.use = general_seed, verbose=TRUE)
+SO <- RunUMAP(SO, dims = 1:top_pcs, seed.use = general_seed, verbose = TRUE)
+```
+
+```{r preprocessSinglet, out.width='50%', results='asis'}
+#resolutions <- c(seq(0.1, 0.4, 0.1), seq(0.6, 1.6, 0.2))
+resolutions <- clust_res
+SO <- FindNeighbors(SO, dims = 1:top_pcs, verbose=TRUE)
+SO <- FindClusters(
+    SO,
+    resolution = resolutions,
+    algorithm = clust_meth,
+    random.seed = general_seed,
+    verbose=TRUE
+)
+```
+
+
+```{r dimplot-cluster-cplt, eval=FILTER == "complete", echo=FILTER == "complete", out.width="50%"}
+Idents(SO) <- SO$seurat_clusters
+DimPlot(SO)
+```
+
+```{r dimplot-cluster-fltd, eval=FILTER == "filtered", echo=FILTER == "filtered", out.width="50%"}
+Idents(SO) <- SO$seurat_clusters
+DimPlot(SO)
+```
+
+# Exports
+
+```{r save4}
+# variable features
+write.table(
+    var.feats.dataset,
+    file = file.path(
+        PATH_OUT_ANALYSIS,
+        paste0("varFeatures_meth.", hvg_meth, "_nb.", hvg_num, "_", DATASET, "_", FILTER, ".txt")),
+    row.names = TRUE,
+    col.names = TRUE
+)
+
+# PCA and UMAP tables
+invisible(sapply(c("pca", "umap"), function(dr) {
+    SO@reductions[[dr]]@cell.embeddings <- cbind(
+        cellIDs = rownames(SO@reductions[[dr]]@cell.embeddings),
+        SO@reductions[[dr]]@cell.embeddings
+    )
+    write.table(
+        SO@reductions[[dr]]@cell.embeddings,
+        file = file.path(
+            PATH_OUT_ANALYSIS,
+            paste0("DR_", dr, "_", DATASET, "_", FILTER, ".csv")),
+        row.names = TRUE,
+        col.names = TRUE,
+        sep = ","
+    )
+}))
+
+# Clustering
+keepMDnames <- c("orig.ident", "nCount_RNA", "nFeature_RNA")
+SO@meta.data <- cbind(cellIDs = rownames(SO@meta.data), SO@meta.data)
+exportMD <- names(SO@meta.data)[! names(SO@meta.data) %in% keepMDnames]
+
+write.table(
+    SO@meta.data[exportMD],
+    file.path(
+        PATH_OUT_ANALYSIS, 
+        paste0("clustering_", DATASET, "_", FILTER, "_meth.", clust_meth, "_res.", clust_res, ".csv")),
+    row.names = TRUE,
+    col.names = TRUE,
+    sep = ","
+)
+
+invisible(gc())
+```
+
+
+
+
+
+

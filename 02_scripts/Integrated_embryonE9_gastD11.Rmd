@@ -1,0 +1,144 @@
+---
+title: "Integrated"
+author: "BULAVKA"
+date: "2023-05-22"
+output: html_document
+output: pdf
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(SeuratData)
+library(ggplot2)
+library(dplyr)
+library(Seurat)
+library(SeuratData)
+library(patchwork)
+library(kableExtra)
+library(stringr)
+library(DoubletFinder)
+library(cowplot)
+source("/mnt/DATA_4TB/projects/gastruloids_sc_Lescroart/analysis/embryE9gastD10/02_scripts/extract_topn.R")
+source("/mnt/DATA_4TB/projects/gastruloids_sc_Lescroart/analysis/embryE9gastD10/02_scripts/add_dominantMetadata.R")
+source("/mnt/DATA_4TB/projects/gastruloids_sc_Lescroart/analysis/embryE9gastD10/02_scripts/00_generalDeps.R")
+```
+# Import Data
+```{r, include=FALSE}
+em.sing <- readRDS("/mnt/DATA_4TB/projects/gastruloids_sc_Lescroart/analysis/embryE9gastD10/50_rdsObjects/em_sing_process.rds")
+gs.sing <- readRDS("/mnt/DATA_4TB/projects/gastruloids_sc_Lescroart/analysis/embryE9gastD10/50_rdsObjects/gs_sing_process.rds")
+# Save data path ---------------------------------------------------------------
+rdsObject <- "/mnt/DATA_4TB/projects/gastruloids_sc_Lescroart/analysis/embryE9gastD10/50_rdsObjects/"
+## table -----------------------------------------------------------------------
+table.path <- "/mnt/DATA_4TB/projects/gastruloids_sc_Lescroart/analysis/embryE9gastD10/53_OutPutTable/"
+# Genes of interest ------------------------------------------------------------
+gene_of_interest <- read.csv("/mnt/DATA_4TB/projects/gastruloids_sc_Lescroart/analysis/embryE9gastD10/genesOfInterest.tsv", header = FALSE,col.names = c("Genes of interest"))
+# Parameters -------------------------------------------------------------------
+colors.table <- read.table(file="/mnt/DATA_4TB/projects/gastruloids_sc_Lescroart/analysis/embryE9gastD10/InputTables/ClusterColors.tsv", sep="\t", header=T, comment.char="", as.is=T)
+colors.celltype <- setNames(colors.table$blind_friendly[!is.na(colors.table$transferred_identity)], colors.table$transferred_identity[!is.na(colors.table$transferred_identity)])
+#  Normalization
+norm_method <- "LogNormalize"
+# Identification of highly variable features (feature selection)
+var_feat_method <- "vst"
+# Clustering
+Leiden <- 4 
+res_var <- 1
+general.seed <-42
+# Genes of interest
+gene_of_interest <- read.csv("/mnt/DATA_4TB/projects/gastruloids_sc_Lescroart/analysis/embryE9gastD10/genesOfInterest.tsv")
+```
+# Fusionner les deux objets Seurat
+```{r, results='hide', warning=FALSE, message=FALSE}
+features <- SelectIntegrationFeatures(object.list =list(gs.sing, em.sing))
+anchorset <- FindIntegrationAnchors(object.list = list(gs.sing, em.sing), dims = 1:20,  anchor.features = features)
+gs_em.sing <-  IntegrateData(anchorset = anchorset)
+
+```
+# Processing
+```{r, warning=FALSE}
+# Identification of highly variable features (feature selection) 
+gs_em.sing <- FindVariableFeatures(gs_em.sing, selection.method = var_feat_method, nfeatures = 2000, verbose = FALSE)
+# Scaling the data 
+all.genes <- rownames(gs_em.sing) 
+gs_em.sing <- ScaleData(gs_em.sing, features = all.genes, verbose = FALSE)
+# Perform linear dimensional reduction 
+gs_em.sing <- RunPCA(gs_em.sing, features = VariableFeatures(object = gs_em.sing), npcs = 20, nfeatures.print = 10, verbose=TRUE, seed.use=general.seed) # seed.use=NULL
+gs_em.sing <- RunUMAP(gs_em.sing, reduction = "pca", dims = 1:20, verbose=FALSE)
+gs_em.sing <- FindNeighbors(gs_em.sing, dims = 1:20, verbose=FALSE)
+gs_em.sing <- FindClusters(gs_em.sing, resolution = res_var, algorithm = Leiden, random.seed = general.seed, verbose=FALSE)
+DimPlot(gs_em.sing, group.by = "orig.ident")
+DimPlot(gs_em.sing, reduction = "umap", label = TRUE) + NoLegend()
+
+```
+```{r}
+
+```
+## Supresion des donnes de metadata 
+```{r}
+gs_em.sing$RNA_snn_res.1 <- NULL
+gs_em.sing$RNA_snn_res.1.5 <- NULL
+gs_em.sing$RNA_snn_res.2 <- NULL
+gs_em.sing$RNA_snn_res.3 <- NULL
+gs_em.sing$pANN_0.25_0.3_485 <- NULL
+gs_em.sing$pANN_0.25_0.1_562 <- NULL
+gs_em.sing$DF.classifications_0.25_0.3_485 <- NULL
+gs_em.sing$DF.classifications_0.25_0.1_562 <- NULL
+```
+# Cell identities
+```{r, warning=FALSE, message=FALSE}
+atlas.subset <- readRDS("/mnt/DATA_4TB/projects/gastruloids_sc_Lescroart/analysis/embryE9gastD10/50_rdsObjects/atlas_preprocessed2.rds")
+anchors <- FindTransferAnchors(reference = atlas.subset, query = gs_em.sing,
+                               dims = 1:20, reference.reduction = "pca")
+predictions <- TransferData(anchorset = anchors, refdata = atlas.subset$celltype,
+                            dims = 1:20)
+gs_em.sing <- AddMetaData(gs_em.sing, metadata = predictions[,"predicted.id"], col.name = "celltype_integr")
+Idents(gs_em.sing) <- gs_em.sing@meta.data$celltype_integr
+DimPlot(gs_em.sing,
+        pt.size = 1,
+        repel = TRUE,
+        label = TRUE,
+        label.size = 6,
+        cols = colors.celltype[levels(Idents(gs_em.sing))]) +
+  ggtitle( "Cell identities after Integration") +
+  theme(plot.title = element_text(hjust = 0.5),
+        axis.text = element_blank(),
+        line = element_blank()) +
+  NoLegend()
+saveRDS(gs_em.sing, file = paste0(rdsObject, "gs_em_sing_process.rds"))
+
+```
+# Find markers ( Heatmaps )
+```{r, warning=FALSE}
+
+DefaultAssay(gs_em.sing) <-"RNA"
+Idents(gs_em.sing)<- gs_em.sing@meta.data$integrated_snn_res.1
+gs_em.sing.markers <- FindAllMarkers(gs_em.sing, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25, verbose = FALSE)
+gs_em.sing.markers %>%
+  group_by(cluster) %>%
+  top_n(n = 3, wt = avg_log2FC) -> top10
+test<-ScaleData(gs_em.sing, verbose = FALSE)
+DoHeatmap(test, features = top10$gene) + NoLegend() 
+
+Idents(gs_em.sing) <- gs_em.sing@meta.data$integrated_snn_res.1
+gs_em.sing.cardio <- subset(test, ident = c(15,5,25)) 
+gs_em.sing.markers.cardio <- FindAllMarkers(gs_em.sing.cardio, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25, verbose = FALSE)
+top10 <- gs_em.sing.markers.cardio %>%
+  group_by(cluster) %>%
+  top_n(n = 5, wt = avg_log2FC) 
+test1<-ScaleData(gs_em.sing.cardio, verbose = FALSE)
+DoHeatmap(test1, features = top10$gene) + NoLegend()
+
+
+saveRDS(gs_em.sing, file = paste0(rdsObject, "gs_em.rds"))
+
+```
+# Marquers des cardiomyocytes 
+```{r}
+names_all <- rownames(gs_em.sing.markers.cardio)
+names5 <- names_all[1:6]
+names15 <- c("Ptn", "Actb", "Actg1", "Vsnl1", "Cald1", "Acta2")
+names25 <- c("Mylpf", "Tnnc2", "Tpm2", "Myh3", "Myog", "Tnnt1")
+VlnPlot(gs_em.sing, names5, ident = c(5,15,25))
+VlnPlot(gs_em.sing, names15, ident = c(5,15,25))
+VlnPlot(gs_em.sing, names25, ident = c(5,15,25))
+```
+

@@ -1,0 +1,11 @@
+# Run the quality control on all datasets independently
+for data in cardioKO cardioWT fibroKO fibroWT;
+do
+	nohup Rscript 00_pipeline_launcher.R qc -i ${data} &> ../60_LOGS/01_qc_${data}.out ;
+done &
+
+# Run the process on complete and filtered datasets
+for data in cardioKO cardioWT fibroKO fibroWT; do nohup Rscript 00_pipeline_launcher.R process -i $data --filter complete &> ../60_LOGS/02_process_${data}_complete.out ; nohup Rscript 00_pipeline_launcher.R process -i $data --filter filtered &> ../60_LOGS/02_process_${data}_filtered.out ; done &
+
+# Run the QC filters on cells among complete datasets
+for data in cardioKO cardioWT fibroKO fibroWT; do nohup Rscript 00_pipeline_launcher.R filters -i ${data} &> ../60_LOGS/03_filtersCtrl_${data}.out ; done &
