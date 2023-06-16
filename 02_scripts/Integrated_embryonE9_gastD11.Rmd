@@ -48,9 +48,9 @@ gene_of_interest <- read.csv("/mnt/DATA_4TB/projects/gastruloids_sc_Lescroart/an
 ```
 # Fusionner les deux objets Seurat
 ```{r, results='hide', warning=FALSE, message=FALSE}
-features <- SelectIntegrationFeatures(object.list =list(gs.sing, em.sing))
-anchorset <- FindIntegrationAnchors(object.list = list(gs.sing, em.sing), dims = 1:20,  anchor.features = features)
-gs_em.sing <-  IntegrateData(anchorset = anchorset)
+features <- SelectIntegrationFeatures(object.list =list(gs.sing, em.sing), verbose = FALSE)
+anchorset <- FindIntegrationAnchors(object.list = list(gs.sing, em.sing), dims = 1:20,  anchor.features = features, verbose = FALSE)
+gs_em.sing <-  IntegrateData(anchorset = anchorset, verbose = FALSE)
 
 ```
 # Processing
@@ -140,5 +140,9 @@ names25 <- c("Mylpf", "Tnnc2", "Tpm2", "Myh3", "Myog", "Tnnt1")
 VlnPlot(gs_em.sing, names5, ident = c(5,15,25))
 VlnPlot(gs_em.sing, names15, ident = c(5,15,25))
 VlnPlot(gs_em.sing, names25, ident = c(5,15,25))
+```
+
+```{r}
+saveRDS(gs_em.sing, file = paste0(rdsObject, "gs_em_sing.rds"))
 ```
 

@@ -118,7 +118,7 @@ DoHeatmap(gs,  group.by = "RNA_snn_res.1", features = top10$gene) + NoLegend()
 atlas.subset <- readRDS("/mnt/DATA_4TB/projects/gastruloids_sc_Lescroart/analysis/embryE9gastD10/50_rdsObjects/atlas_preprocessed2.rds")
 anchors <- FindTransferAnchors(reference = atlas.subset, query = gs,
                                dims = 1:20, reference.reduction = "pca")
-predictions <- TransferData(anchorset = anchors, refdata = atlas.subset$celltype,
+predictions <- TransferData(anchorset = anchors, refdata = atlas.subset$celltype, verbose = FALSE,
                             dims = 1:20)
 gs <- AddMetaData(gs, metadata = predictions[,"predicted.id"], col.name = "celltype_DF")
 
