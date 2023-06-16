@@ -20,7 +20,7 @@ library(stringr)
 library(DoubletFinder)
 source("/mnt/DATA_4TB/projects/gastruloids_sc_Lescroart/analysis/embryE9gastD10/02_scripts/extract_topn.R")
 source("/mnt/DATA_4TB/projects/gastruloids_sc_Lescroart/analysis/embryE9gastD10/02_scripts/add_dominantMetadata.R")
-source("/mnt/DATA_4TB/projects/gastruloids_sc_Lescroart/analysis/embryE9gastD10/02_scripts/00_generalDeps.R")
+
 ```
 # 1. Load the dataset 
 ```{r Load the dataset, include=FALSE}
@@ -200,13 +200,13 @@ cellsData <- data.frame(em@reductions[["umap"]]@cell.embeddings, em@meta.data$nC
 colnames(cellsData) <- c(colnames(em@reductions[["umap"]]@cell.embeddings), "nCount_RNA")
 Db <- table(em@meta.data[col_dblts])["Doublet"]
 Sing <- table(em@meta.data[col_dblts])["Singlet"]
-saveRDS(em, file = paste0(rdsObject, "em.rds"))
+saveRDS(em, file = paste0(rdsObject, "embryo.rds"))
 ```
 # 8. Preprocessing workflow (after doublets rgsoval)
 ```{r Preprocessing workflow (after doublets rgsoval), message=FALSE, warning=FALSE}
 ## Subset to singlets 
 em.sing <- subset(em, idents='Singlet')
-saveRDS(em.sing, file = paste0(rdsObject, "em_singlets.rds"))
+saveRDS(em.sing, file = paste0(rdsObject, "embryo_singlets.rds"))
 em.sing <- FindVariableFeatures(em.sing, selection.method = var_feat_method, nfeatures=2000, verbose=FALSE)
 em.sing <- ScaleData(em.sing, features=rownames(em.sing), do.scale=FALSE, verbose=FALSE)
 em.sing <- RunPCA(em.sing, npcs = 20, nfeatures.print = 10, seed.use = general.seed, verbose=TRUE)
@@ -265,8 +265,8 @@ VlnPlot(em.sing, names41, ident = c(15,41,44,45))
 VlnPlot(em.sing, names44, ident = c(15,41,44,45))
 VlnPlot(em.sing, names45, ident = c(15,41,44,45))
 
-write.table(em.sing.cardio.markers.sign, file = paste0(table.path, "marquers_cl_15_41_44_45_em_sign.csv"))
+write.table(em.sing.cardio.markers.sign, file = paste0(table.path, "marquers_cl_15_41_44_45_embryo_sign.csv"))
 
-
+saveRDS(em.sing, file = paste0(rdsObject,"embryo_sing_process.rds"))
 ```
 

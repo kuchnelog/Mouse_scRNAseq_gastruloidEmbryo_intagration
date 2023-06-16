@@ -169,11 +169,11 @@ cellsData <- data.frame(em@reductions[["umap"]]@cell.embeddings, em@meta.data$nC
 colnames(cellsData) <- c(colnames(em@reductions[["umap"]]@cell.embeddings), "nCount_RNA")
 Db <- table(em@meta.data[col_dblts])["Doublet"]
 Sing <- table(em@meta.data[col_dblts])["Singlet"]
-saveRDS(em, file = paste0(rdsObject, "em.rds"))
-#em <- readRDS("/mnt/DATA_4TB/projects/gastruloids_sc_Lescroart/analysis/embryE9gastD10/50_rdsObjects/em.rds")
+saveRDS(em, file = paste0(rdsObject, "embryo.rds"))
+#em <- readRDS("/mnt/DATA_4TB/projects/gastruloids_sc_Lescroart/analysis/embryE9gastD10/50_rdsObjects/embryo.rds")
 ## Subset to singlets ----------------------------------------------------------
 em.sing <- subset(em, idents='Singlet')
-saveRDS(em.sing, file = paste0(rdsObject, "em_singlets.rds"))
+saveRDS(em.sing, file = paste0(rdsObject, "embryo_singlets.rds"))
 
 # 10. Preprocessing workflow (after doublets removal) -------------------------
 em.sing <- FindVariableFeatures(em.sing, selection.method = var_feat_method, nfeatures=2000, verbose=FALSE)
@@ -231,13 +231,7 @@ VlnPlot(em.sing, names44, ident = c(15,41,44,45))
 VlnPlot(em.sing, names45, ident = c(15,41,44,45))
 
 ## Table de marquers -----------------------------------------------------------
-write.table(em.sing.cardio.markers.sign, file = paste0(table.path, "marquers_cl_14_41_44_45_em_sign.csv"))
-write.table(cluster14_35.markers, file = paste0(table.path, "marquers_cl_14_35_em.csv"))
-write.table(cluster14_45.markers, file = paste0(table.path, "marquers_cl_14_45_em.csv"))
-# VlnPlot(em.sing, cluster14_35.markers.14names[1:3], idents = c(14, 35))
-# VlnPlot(em.sing, cluster14_35.markers.35names[1:9], idents = c(14, 35))
-# VlnPlot(em.sing, cluster14_45.markers.14names[1:9],  idents = c(14, 45))
-# VlnPlot(em.sing, cluster14_45.markers.45names[1:2],  idents = c(14, 45))
+write.table(em.sing.cardio.markers.sign, file = paste0(table.path, "marquers_cl_15_41_44_45_em_sign.csv"))
 
 # 13. Cell identities after perform DoubletFinder--------------------------------
 anchors <- FindTransferAnchors(reference = atlas.subset, query = em.sing,
@@ -260,7 +254,7 @@ DimPlot(em.sing,
   NoLegend()
 
 View(atlas.subset)
-saveRDS(em.sing, file = paste0(rdsObject,"em_sing_process.rds"))
+
 ## Celltype identity
 Idents(em.sing) <- factor(em.sing@meta.data$celltype, levels = sort(levels(as.factor(em.sing@meta.data$celltype))))
 
@@ -272,6 +266,6 @@ violinFeatureByCluster("GFP", em.sing)
 violinFeatureByCluster("Cre", em.sing)
 
 
-saveRDS(em.sing, file = paste0(rdsObject,"em_sing_total.rds"))
-em.sing <- readRDS("/mnt/DATA_4TB/projects/gastruloids_sc_Lescroart/analysis/embryE9gastD10/50_rdsObjects/em_sing_total.rds")
+saveRDS(em.sing, file = paste0(rdsObject,"embryo_sing_process.rds"))
+em.sing <- readRDS("/mnt/DATA_4TB/projects/gastruloids_sc_Lescroart/analysis/embryE9gastD10/50_rdsObjects/embryo_sing_total.rds")
 gc()

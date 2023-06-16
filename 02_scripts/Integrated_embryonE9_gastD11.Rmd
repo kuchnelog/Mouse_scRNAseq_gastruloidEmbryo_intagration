@@ -20,12 +20,12 @@ library(DoubletFinder)
 library(cowplot)
 source("/mnt/DATA_4TB/projects/gastruloids_sc_Lescroart/analysis/embryE9gastD10/02_scripts/extract_topn.R")
 source("/mnt/DATA_4TB/projects/gastruloids_sc_Lescroart/analysis/embryE9gastD10/02_scripts/add_dominantMetadata.R")
-source("/mnt/DATA_4TB/projects/gastruloids_sc_Lescroart/analysis/embryE9gastD10/02_scripts/00_generalDeps.R")
+
 ```
 # Import Data
 ```{r, include=FALSE}
-em.sing <- readRDS("/mnt/DATA_4TB/projects/gastruloids_sc_Lescroart/analysis/embryE9gastD10/50_rdsObjects/em_sing_process.rds")
-gs.sing <- readRDS("/mnt/DATA_4TB/projects/gastruloids_sc_Lescroart/analysis/embryE9gastD10/50_rdsObjects/gs_sing_process.rds")
+em.sing <- readRDS("/mnt/DATA_4TB/projects/gastruloids_sc_Lescroart/analysis/embryE9gastD10/50_rdsObjects/embryo_sing_process.rds")
+gs.sing <- readRDS("/mnt/DATA_4TB/projects/gastruloids_sc_Lescroart/analysis/embryE9gastD10/50_rdsObjects/gast_sing_process.rds")
 # Save data path ---------------------------------------------------------------
 rdsObject <- "/mnt/DATA_4TB/projects/gastruloids_sc_Lescroart/analysis/embryE9gastD10/50_rdsObjects/"
 ## table -----------------------------------------------------------------------
@@ -103,7 +103,7 @@ DimPlot(gs_em.sing,
         axis.text = element_blank(),
         line = element_blank()) +
   NoLegend()
-saveRDS(gs_em.sing, file = paste0(rdsObject, "gs_em_sing_process.rds"))
+saveRDS(gs_em.sing, file = paste0(rdsObject, "gast_embryo_sing_process.rds"))
 
 ```
 # Find markers ( Heatmaps )
@@ -127,6 +127,7 @@ top10 <- gs_em.sing.markers.cardio %>%
 test1<-ScaleData(gs_em.sing.cardio, verbose = FALSE)
 DoHeatmap(test1, features = top10$gene) + NoLegend()
 
+write.table(gs_em.sing.cardio, file = paste0(table.path, "inegrated_marquers_cl_5_15_25.csv"))
 
 saveRDS(gs_em.sing, file = paste0(rdsObject, "gs_em.rds"))
 

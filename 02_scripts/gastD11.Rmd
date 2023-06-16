@@ -17,7 +17,6 @@ library(stringr)
 library(DoubletFinder)
 source("/mnt/DATA_4TB/projects/gastruloids_sc_Lescroart/analysis/embryE9gastD10/02_scripts/extract_topn.R")
 source("/mnt/DATA_4TB/projects/gastruloids_sc_Lescroart/analysis/embryE9gastD10/02_scripts/add_dominantMetadata.R")
-source("/mnt/DATA_4TB/projects/gastruloids_sc_Lescroart/analysis/embryE9gastD10/02_scripts/00_generalDeps.R")
 
 ```
 # 1 Load the dataset 
@@ -199,14 +198,14 @@ p1
 cellsData <- data.frame(gs@reductions[["umap"]]@cell.embeddings, gs@meta.data$nCount_RNA)
 colnames(cellsData) <- c(colnames(gs@reductions[["umap"]]@cell.embeddings), "nCount_RNA")
 Db <- table(gs@meta.data[col_dblts])["Doublet"]
-saveRDS(gs, file = paste0(rdsObject, "gs.rds"))
+saveRDS(gs, file = paste0(rdsObject, "gast.rds"))
 
 
 ```
 # 8. Preprocessing workflow (after doublets rgsoval)
 ```{r Preprocessing workflow (after doublets rgsoval), message=FALSE, warning=FALSE}
 gs.sing <- subset(gs, idents='Singlet')
-saveRDS(gs.sing, file = paste0(rdsObject, "gs_singlets.rds"))
+saveRDS(gs.sing, file = paste0(rdsObject, "gast_singlets.rds"))
 gs.sing <- FindVariableFeatures(gs.sing, selection.method = var_feat_method, nfeatures=2000, verbose=FALSE)
 gs.sing <- ScaleData(gs.sing, features=rownames(gs.sing), do.scale=FALSE, verbose=FALSE)
 gs.sing <- RunPCA(gs.sing, npcs = 20, nfeatures.print = 10, seed.use = general.seed, verbose=TRUE)
@@ -246,7 +245,7 @@ DimPlot(gs.sing,
         axis.text = element_blank(),
         line = element_blank()) +
   NoLegend()
-saveRDS(gs.sing, file = paste0(rdsObject,"gs_sing_process.rds"))
+saveRDS(gs.sing, file = paste0(rdsObject,"gast_sing_process.rds"))
 
 
 ```

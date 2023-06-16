@@ -169,12 +169,12 @@ p1
 cellsData <- data.frame(gs@reductions[["umap"]]@cell.embeddings, gs@meta.data$nCount_RNA)
 colnames(cellsData) <- c(colnames(gs@reductions[["umap"]]@cell.embeddings), "nCount_RNA")
 Db <- table(gs@meta.data[col_dblts])["Doublet"]
-saveRDS(gs, file = paste0(rdsObject, "gs.rds"))
-#gs <- readRDS("/mnt/DATA_4TB/projects/gastruloids_sc_Lescroart/analysis/embryE9gastD10/50_rdsObjects/gs.rds")
+saveRDS(gs, file = paste0(rdsObject, "gast.rds"))
+#gs <- readRDS("/mnt/DATA_4TB/projects/gastruloids_sc_Lescroart/analysis/embryE9gastD10/50_rdsObjects/gast.rds")
 
 ## Subset to singlets ----------------------------------------------------------
 gs.sing <- subset(gs, idents='Singlet')
-saveRDS(gs.sing, file = paste0(rdsObject, "gs_singlets.rds"))
+saveRDS(gs.sing, file = paste0(rdsObject, "gast_singlets.rds"))
 
 # 10. Preprocessing workflow (after doublets rgsoval) --------------------------
 gs.sing <- FindVariableFeatures(gs.sing, selection.method = var_feat_method, nfeatures=2000, verbose=FALSE)
@@ -213,7 +213,7 @@ DimPlot(gs.sing,
         axis.text = element_blank(),
         line = element_blank()) +
   NoLegend()
-saveRDS(gs.sing, file = paste0(rdsObject,"gs_sing_process.rds"))
+saveRDS(gs.sing, file = paste0(rdsObject,"gast_sing_process.rds"))
 
 ## Celltype identity
 Idents(gs.sing) <- factor(gs.sing@meta.data$celltype, levels = sort(levels(as.factor(gs.sing@meta.data$celltype))))
@@ -223,4 +223,4 @@ Idents(gs.sing) <- factor(gs.sing@meta.data$celltype, levels = sort(levels(as.fa
 
 FeaturePlot(gs.sing, features = c("Ftl1","Ftl1-ps1"),  reduction = "umap", cols = c("lightgrey", "darkred"), ncol = 3) & theme(plot.title = element_text(size = 10))
 
-saveRDS(gs.sing, file = paste0(rdsObject,"gs_sing_total.rds"))
+
